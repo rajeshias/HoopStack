@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoop Sort: Hard Mode</title>
+    <style>
+        :root {
+            --bg-color: #2c2c2c;
+            --hoop-height: 25px;
+            --hoop-width: 90px;
+            /* 9 hoops * 25px = 225px max height */
+            --max-capacity: 9;
+            --pole-height: calc(var(--hoop-height) * var(--max-capacity)); 
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        h1 { margin-bottom: 5px; text-shadow: 2px 2px 4px black; }
+        p { color: #aaa; margin-bottom: 20px; font-size: 0.9rem; }
+
+        #game-board {
+            display: flex;
+            gap: 25px;
+            padding: 40px 30px 20px 30px; /* Top padding for lifting space */
+            background: #222;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            align-items: flex-end;
+        }
+
+        .pole-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100px;
+            height: 300px; /* Container height */
+            position: relative;
+            cursor: pointer;
+        }
+
+        .pole-container:hover .pole-stick {
+            background: linear-gradient(90deg, #666, #333);
+        }
+
+        /* The vertical stick - NOW EXACTLY THE HEIGHT OF 9 HOOPS */
+        .pole-stick {
+            position: absolute;
+            bottom: 10px; /* sit on base */
+            width: 12px;
+            height: var(--pole-height); /* 225px */
+            background: linear-gradient(90deg, #444, #111);
+            border-radius: 6px 6px 0 0;
+            z-index: 0;
+            transition: background 0.2s;
+        }
+
+        /* The base of the stick */
+        .pole-base {
+            width: 100%;
+            height: 10px;
+            background: #000;
+            border-radius: 5px;
+            z-index: 0;
+        }
+
+        /* The Hoops */
+        .hoop {
+            width: var(--hoop-width);
+            height: var(--hoop-height);
+            border-radius: 50%;
+            margin-bottom: -4px; /* Slight overlap for perspective */
+            z-index: 10;
+            border: 1px solid rgba(0,0,0,0.3);
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 3D Shine */
+        .hoop::after {
+            content: '';
+            position: absolute;
+            top: 5px; left: 5px; right: 5px; bottom: 5px;
+            border-radius: 50%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0));
+            pointer-events: none;
+        }
+
+        /* Selected State */
+        .hoop.selected {
+            transform: translateY(-40px) scale(1.05);
+            box-shadow: 0 15px 20px rgba(0,0,0,0.4);
+            z-index: 100;
+        }
+
+        /* Colors */
+        .color-pink { background: linear-gradient(to right, #ff99cc, #ff69b4, #d14785); }
+        .color-orange { background: linear-gradient(to right, #ffcc80, #ff8c00, #bf360c); }
+        .color-purple { background: linear-gradient(to right, #ce93d8, #9c27b0, #4a148c); }
+
+        /* Stack container to align hoops bottom-up */
+        .stack-wrapper {
+            display: flex;
+            flex-direction: column-reverse;
+            margin-bottom: 10px; /* Sit on base */
+            z-index: 1;
+        }
+
+        #controls { margin-top: 20px; display: flex; gap: 10px; }
+        
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #666; }
+
+        #message {
+            min-height: 30px;
+            margin-top: 15px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .error { color: #ff5252; }
+        .success { color: #69f0ae; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Hoop Stack: Full Capacity</h1>
+    <p>Capacity limit: 9 Hoops. First 3 poles are full.</p>
+
+    <div id="game-board"></div>
+
+    <div id="message"></div>
+
+    <div id="controls">
+        <button onclick="resetGame()">Restart Level</button>
+    </div>
+
+    <script>
+        const PINK = 'pink';
+        const ORANGE = 'orange';
+        const PURPLE = 'purple';
+        const MAX_CAPACITY = 9; // Hard Limit
+
+        // Bottom to Top pattern
+        const STARTING_STATE = [
+            [PINK, ORANGE, PURPLE, PINK, ORANGE, PURPLE, PINK, PURPLE, PINK], 
+            [PURPLE, ORANGE, PURPLE, PINK, ORANGE, PINK, ORANGE, PURPLE, PINK],
+            [ORANGE, PINK, PURPLE, PINK, ORANGE, PINK, PURPLE, PINK, ORANGE],
+            [] // 4th pole empty
+        ];
+
+        let gameState = [];
+        let selectedPoleIndex = null;
+
+        const boardEl = document.getElementById('game-board');
+        const messageEl = document.getElementById('message');
+
+        function initGame() {
+            gameState = JSON.parse(JSON.stringify(STARTING_STATE));
+            selectedPoleIndex = null;
+            messageEl.textContent = "";
+            render();
+        }
+
+        function render() {
+            boardEl.innerHTML = '';
+
+            gameState.forEach((column, colIndex) => {
+                const poleContainer = document.createElement('div');
+                poleContainer.className = 'pole-container';
+                poleContainer.onclick = () => handlePoleClick(colIndex);
+
+                // The Stick
+                const stick = document.createElement('div');
+                stick.className = 'pole-stick';
+                poleContainer.appendChild(stick);
+
+                // The Hoops
+                const stackWrapper = document.createElement('div');
+                stackWrapper.className = 'stack-wrapper';
+
+                column.forEach((color, hoopIndex) => {
+                    const hoop = document.createElement('div');
+                    hoop.className = `hoop color-${color}`;
+                    
+                    // Add selected class to top hoop if this pole is active
+                    if (selectedPoleIndex === colIndex && hoopIndex === column.length - 1) {
+                        hoop.classList.add('selected');
+                    }
+                    stackWrapper.appendChild(hoop);
+                });
+
+                poleContainer.appendChild(stackWrapper);
+
+                // The Base
+                const base = document.createElement('div');
+                base.className = 'pole-base';
+                poleContainer.appendChild(base);
+
+                boardEl.appendChild(poleContainer);
+            });
+        }
+
+        function handlePoleClick(index) {
+            messageEl.className = "";
+            messageEl.textContent = "";
+
+            // 1. SELECTING
+            if (selectedPoleIndex === null) {
+                if (gameState[index].length > 0) {
+                    selectedPoleIndex = index;
+                    render();
+                }
+                return;
+            }
+
+            // 2. DESELECTING (Clicking same pole)
+            if (selectedPoleIndex === index) {
+                selectedPoleIndex = null;
+                render();
+                return;
+            }
+
+            // 3. MOVING
+            const sourcePole = gameState[selectedPoleIndex];
+            const targetPole = gameState[index];
+            
+            // Check Capacity
+            if (targetPole.length >= MAX_CAPACITY) {
+                messageEl.textContent = "❌ Pole is full to the brim!";
+                messageEl.className = "error";
+                // Deselect on error? Or keep selected? Let's keep selected so they can try elsewhere.
+                return;
+            }
+
+            // Move logic
+            // Note: Since the prompt implies the original girl played badly, 
+            // we allow moving ANY color to ANY empty space or color to fix the mess.
+            // We do not enforce "Must place on same color" (Towers of Hanoi style), 
+            // otherwise the game might be impossible given the chaotic start.
+            // But we can enforce it if you want stricter puzzle rules.
+            // For now: Free move, just capacity limit.
+            
+            targetPole.push(sourcePole.pop());
+            selectedPoleIndex = null;
+            render();
+            checkWin();
+        }
+
+        function checkWin() {
+            let isWin = true;
+            let filledPoles = 0;
+            let totalHoops = 0;
+
+            // Count total hoops to ensure we don't trigger win on empty board glitch
+            gameState.forEach(p => totalHoops += p.length);
+            if(totalHoops === 0) return;
+
+            gameState.forEach(pole => {
+                if (pole.length === 0) return;
+
+                // Check for single color
+                const firstColor = pole[0];
+                const isUniform = pole.every(c => c === firstColor);
+                
+                if (!isUniform) {
+                    isWin = false;
+                } else {
+                    // Check if pole is complete (all of that color gathered)
+                    // Visual estimation: there are 9 pinks, 9 oranges, 9 purples total.
+                    // So a pole must have 9 items to be "Done".
+                    if (pole.length === MAX_CAPACITY) {
+                        filledPoles++;
+                    } else {
+                        // If it's uniform but not full (e.g. stack of 2), not a win yet
+                        isWin = false; 
+                    }
+                }
+            });
+
+            if (isWin && filledPoles === 3) {
+                messageEl.textContent = "🏆 PERFECT! JUSTICE IS SERVED! 🏆";
+                messageEl.className = "success";
+            }
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        initGame();
+
+    </script>
+</body>
+</html>
