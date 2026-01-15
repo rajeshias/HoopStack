@@ -147,7 +147,7 @@
 <body>
 
     <h1>Hoop Stack: Full Capacity</h1>
-    <p>Capacity limit: 9 Hoops. First 3 poles are full.</p>
+    <p>Are you better than the girl?</p>
 
     <div id="game-board"></div>
 
@@ -159,15 +159,15 @@
 
     <script>
         const PINK = 'pink';
-        const ORANGE = 'orange';
+        const ORANGE = 'red';
         const PURPLE = 'purple';
         const MAX_CAPACITY = 9; // Hard Limit
 
         // Bottom to Top pattern
         const STARTING_STATE = [
-            [PINK, ORANGE, PURPLE, PINK, ORANGE, PURPLE, PINK, PURPLE, PINK], 
-            [PURPLE, ORANGE, PURPLE, PINK, ORANGE, PINK, ORANGE, PURPLE, PINK],
-            [ORANGE, PINK, PURPLE, PINK, ORANGE, PINK, PURPLE, PINK, ORANGE],
+            [PINK, PURPLE, PINK, ORANGE, PURPLE, ORANGE, PINK, PURPLE, ORANGE, PINK], 
+            [PURPLE, ORANGE, PINK, PURPLE, ORANGE, PINK, PURPLE, ORANGE, PINK, PURPLE],
+            [ORANGE, PINK, PURPLE, ORANGE, PINK, PURPLE, ORANGE, PINK, PURPLE, ORANGE],
             [] // 4th pole empty
         ];
 
